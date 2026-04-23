@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="吳巧妍的自我介紹與作品集">
+    <title>The Inner Castle | 吳巧妍</title>
+
+    <script src="https://cdn.tailwindcss.org"></script>
+
+    <style>
+        :root {
+            --gold: #c5a059;
+            --tech-blue: #00e5ff;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background: #1a1a1a;
+            color: #d1d1d1;
+            font-family: "Kaisei Decol", serif;
+        }
+
+        /* Loading */
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 1.5s;
+        }
+
+        /* Background */
+        #castle-bg {
+            position: fixed;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            z-index: -2;
+        }
+
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            /* 調整層級：放在背景圖 (z-index: -2) 稍微前面一點點，但在內容框 (z-index: 10) 後面 */
+            z-index: -1;
+            /* 使用 screen 混合模式可以讓亮部融合，不會有黑邊 */
+            mix-blend-mode: screen;
+            /* 降低整體畫布透明度，讓它若隱若現 */
+            opacity: 1;
+        }
+
+        #mouse-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            /* 光暈放在最底層背景之上，粒子之下 */
+            z-index: 2;
+            background: radial-gradient(circle 150px at var(--mouse-x, 50%) var(--mouse-y, 50%),
+                    rgba(0, 229, 255, 0.5),
+                    transparent 50%);
+            transition: background 0.1s ease-out;
+        }
+
+        .tech-pulse {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle, rgba(0, 229, 255, 0.05), transparent);
+            z-index: -1;
+        }
+
+        /* Frame */
+        #content-frame {
+            z-index: 1;
+            position: relative;
+            margin: auto;
+            top: 5%;
+            width: 90%;
+            max-width: 1200px;
+            height: 85vh;
+            overflow-y: auto;
+            padding: 3rem;
+            border: 1px solid var(--gold);
+            background: rgba(0, 0, 0, 0.85);
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+        }
+
+        /* Progress */
+        #progress-bar {
+            height: 3px;
+            background: linear-gradient(to right, #c5a059, #00e5ff);
+            width: 0%;
+            margin-bottom: 10px;
+        }
+
+        /* Choice */
+        .choice-btn {
+            border: 1px solid #333;
+            padding: 10px;
+            margin-top: 10px;
+            width: 100%;
+            transition: 0.3s;
+        }
+
+        .choice-btn:hover {
+            border-color: #00e5ff;
+            color: #00e5ff;
+        }
+
+        /*武器庫
+        /* 技能武器庫容器 - 預設隱藏 */
+        #armory-container {
+            display: none;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px dashed rgba(197, 160, 89, 0.3);
+            flex-wrap: wrap;
+        }
+
+        /* 武器/技能項目的漂浮動畫 */
+        .weapon-item {
+            text-align: center;
+            width: 70px;
+            animation: floating 3s ease-in-out infinite;
+        }
+
+        .weapon-icon {
+            width: 45px;
+            height: 45px;
+            margin: 0 auto 8px;
+            border: 1px solid var(--gold);
+            background: rgba(0, 229, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: var(--gold);
+            /* 六角形設計，增加遊戲感 */
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            transition: all 0.3s;
+        }
+
+        .weapon-icon:hover {
+            background: rgba(0, 229, 255, 0.2);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px var(--tech-blue);
+        }
+
+        .weapon-label {
+            font-size: 0.65rem;
+            color: #aaa;
+            letter-spacing: 1px;
+        }
+
+        @keyframes floating {
+
+            0%,
+            100% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        /* 讓各個項目動畫交錯，看起來更自然 */
+        .weapon-item:nth-child(2n) {
+            animation-delay: 0.4s;
+        }
+
+        .weapon-item:nth-child(3n) {
+            animation-delay: 0.8s;
+        }
+
+
+        /* Scroll hint */
+        #scroll-hint {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+            opacity: 0.3;
+            animation: float 2s infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(5px);
+            }
+        }
+
+        /* typing */
+        .typing::after {
+            content: "|";
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="particle-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-0"></canvas>
+    <div id="mouse-glow" class="fixed top-0 left-0 w-full h-full pointer-events-none z-[5] opacity-50"></div>
+
+    <div id="loading-screen">Entering The Inner Castle...</div>
+
+    <audio id="bg-music" loop>
+        <source src="Fading Light.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="castle-bg"></div>
+    <div class="tech-pulse"></div>
+
+    <div id="content-frame">
+        <div id="progress-bar"></div>
+
+        <div id="portrait-reveal"></div>
+
+        <div id="location-tag"></div>
+        <h2 id="chapter-title"></h2>
+
+        <div id="scene-body"></div>
+
+        <div id="armory-container">
+            <div class="weapon-item">
+                <div class="weapon-icon">Unity</div>
+                <div class="weapon-label">引擎</div>
+            </div>
+            <div class="weapon-item">
+                <div class="weapon-icon">C#</div>
+                <div class="weapon-label">邏輯</div>
+            </div>
+            <div class="weapon-item">
+                <div class="weapon-icon">Blender</div>
+                <div class="weapon-label">建模</div>
+            </div>
+            <div class="weapon-item">
+                <div class="weapon-icon">Adobe</div>
+                <div class="weapon-label">視覺</div>
+            </div>
+            <div class="weapon-item">
+                <div class="weapon-icon">AI</div>
+                <div class="weapon-label">增幅</div>
+            </div>
+        </div>
+
+        <div id="choice-area"></div>
+
+        <div id="scroll-hint">↓ Scroll</div>
+    </div>
+
+    <script>
+
+        /* ===================== 音樂 ===================== */
+        const music = document.getElementById('bg-music');
+        let isMusicStarted = false;
+
+        /* ===================== 打字機 ===================== */
+        let isTyping = false;
+        let skip = false;
+
+        async function typeWriterRender(container, bodyArray) {
+            container.innerHTML = "";
+            isTyping = true;
+            skip = false;
+
+            for (let block of bodyArray) {
+
+                if (block.type === "text") {
+                    let p = document.createElement("p");
+                    container.appendChild(p);
+
+                    // HTML直接顯示（不打字）
+                    if (block.text.includes("<")) {
+                        p.innerHTML = block.text;
+                        continue;
+                    }
+
+                    await typeText(p, block.text);
+                }
+
+                if (block.type === "dialogue") {
+                    let box = document.createElement("div");
+                    let speaker = document.createElement("div");
+                    let text = document.createElement("p");
+
+                    speaker.textContent = block.speaker;
+                    box.appendChild(speaker);
+                    box.appendChild(text);
+                    container.appendChild(box);
+
+                    await typeText(text, block.text);
+                }
+            }
+
+            isTyping = false;
+        }
+
+        function typeText(el, text) {
+            return new Promise(res => {
+                let i = 0;
+                el.classList.add("typing");
+
+                function typing() {
+                    if (skip) {
+                        el.innerHTML = text.replace(/\n/g, "<br>");
+                        el.classList.remove("typing");
+                        return res();
+                    }
+
+                    if (i < text.length) {
+                        if (text[i] === "\n") {
+                            el.innerHTML += "<br>";
+                        } else {
+                            el.innerHTML += text[i];
+                        }
+                        i++;
+                        setTimeout(typing, 25);
+                    } else {
+                        el.classList.remove("typing");
+                        res();
+                    }
+                }
+                typing();
+            });
+        }
+
+        /* 點擊加速 */
+        document.getElementById("scene-body").onclick = () => {
+            if (isTyping) skip = true;
+        };
+
+        /* ===================== 進度 ===================== */
+        const sceneOrder = [
+            "awakening", "prologue", "chapter_1", "chapter_2", "chapter_3", "chapter_4", "final_chapter", "ending"
+        ];
+
+        /* ===================== 場景（原本保留） ===================== */
+        const scenes = {
+            awakening: {
+                loc: "The Mist of Void",
+                bg: "mist.jpg",
+                title: "清醒與迷霧",
+                body: () => [
+                    { type: "text", text: "從黑暗中清醒的您，看著眼前一片迷霧，感到相當的不解與迷惑，還沒來得及思考，就聽到耳邊有一個悠遠的聲音在風聲中訴說著他/她的故事。" },
+                    { type: "text", text: "「你是誰？」您大喊著，卻怎麼也沒有得到回應。您大喊了數幾次，可怎麼喊叫，回應的只有斷斷續續從風聲中傳過來的說話聲。" },
+                    { type: "text", text: "“踏上...這個旅程...開始...請...仔細傾聽...準備...就向前...不要害怕...您...我...的內心...”" }
+                ],
+                choices: [
+                    { text: "前進", next: "prologue" },
+                    { text: "放棄 (結束故事)", next: "quit_game" }
+                ]
+            },
+            prologue: {
+                loc: "Grand Entrance",
+                bg: "out_castle.jpg",
+                title: "推門而入",
+                body: () => [
+                    { type: "text", text: "您選擇向前。本是濃密的看不見前方的迷霧，忽然散了開來，就像在恭迎您的來到似的。" },
+                    { type: "text", text: "「推開門，所有的一切都在門的後面...」聲音在此時變得清晰。按照指示，您看著眼前從迷霧之中顯現出來的古堡大門，幽暗而詭異，除了往前邁進也無處可去了。" },
+                    { type: "text", text: "好吧，推門吧。" }],
+                choices: [
+                    { text: "推門進去", next: "chapter_1" },]
+            },
+            chapter_1: {
+                loc: "The Hall of Boundaries",
+                bg: "in_castle.jpg",
+                title: "第一章：石牆上的裂縫與遠方的微光",
+                body: () => [
+                    { type: "text", text: "隨著「嘎吱」一聲沉重的悶響，大門緩緩開啟。一股混合著舊書紙張與電子零件焊錫的味道撲面而來。大廳內無無數閃爍著微弱螢光藍點的導線，如同脈搏般在牆壁上律動。" },
+                    { type: "text", text: "一個悠遠的聲音忽然傳進了你的耳朵。" },
+
+                    { type: "text", text: "「歡迎來到我的世界。這裡的每一塊磚，都是我從一點一點砌好並搭建而成的。」" },
+
+                    { type: "text", text: "你緩緩走進了古堡的大廳，觀察著四周的牆壁與擺設，這時，你見到了幾幅畫。" },
+
+                    { type: "text", text: "受好奇心驅使的你，朝著畫走了過去。" },
+
+                    { type: "text", text: "第一幅畫描繪著一個叫「油車村」的平靜小鎮，灰色的石框象徵著難以逾越的邊界。畫像中小女孩正躲在陰影處，手裡握著一本閃爍著異樣光芒的故事書。" },
+                    { type: "text", text: "「最初，我被困在框線裡。家庭與學業上給我極大的不自由與痛楚，我感覺就像個被折翼的小鳥，一輩子被困在那個地方，每天始終只是隨著操偶師的控制的在呼吸、在表演著正常的小孩與學生。直到那天──」" },
+
+                    { type: "text", text: "「我打開了小說。小說走進了我的世界，讓我看見了不一樣的東西，看見了除了我自己以外的世界以及其他人的故事，讓我知道，生命不只是如此，還可以有那麼多無限的可能。」" },
+                    { type: "text", text: "「看故事的我，彷彿有了翅膀，終於不再只是那個活在小小村莊的我。故事給了我喘息的空間。在油車村的日常裡，我的世界本是灰褐色的；但當我翻開小說，那些文字像是在黑白底片上潑灑了螢光色。我第一次知道，原來世界可以有這麼多色彩。」" }
+                ],
+                choices: [
+                    { text: "觀察：刻有外語符號的小門 (好奇心與探索)", next: "observ_door" },
+                    { text: "前進：走向散發齒輪聲的長廊 (技術與實作)", next: "chapter_2" }
+                ]
+            },
+            observ_door: {
+                loc: "Memory Alcove",
+                bg: "japan.jpg",
+                title: "記憶的藍圖",
+                body: () => [
+                    { type: "text", text: "牆角的架子上，擺放著動畫周邊與遊戲把手，還有幾張在日本交流的照片。當您觸碰它們時，空氣中隱約傳來戰鬥的吶喊與抉擇聲。" },
+                    { type: "text", text: "「故事帶給了我那麼多的可能性，或許...我也可以...」那個聲音變得青澀。這是這座古堡最初的藍圖。" }
+                ],
+                choices: [{ text: "走向散發齒輪聲的長廊", next: "chapter_2" }]
+            },
+            chapter_2: {
+                loc: "The Alchemist's Lab",
+                bg: "star.jpg",
+                title: "第二章：鍊金術師的實驗室",
+                body: () => [
+                    { type: "text", text: "這裡浮現著半透明的代碼：每一行 Vector3 座標都是星圖；每一個 if 判斷式都是保護內心的機關。您不再是受控的木偶，而是設計規則的神。" },
+                    { type: "text", text: "「故事曾經給了我偌大的力量，因此我開始創作，我不再只是聽故事的人。從創作小說到影像創作，我不斷地利用故事在掙脫束縛，也想透過故事來給予他人力量。」" },
+                    { type: "text", text: "「最後，我去到了陽明交通大學傳科系。在這裡，我學會了成為『世界的工程師』。我用邏輯築起骨架，用光影填滿靈魂。每一行代碼，都是我對現實發起的挑戰。」" },
+                    { type: "text", text: "角落裡，Gemini 與 Suno 的靈魂投影正圍坐在一起，共同推敲著未知的樂章與劇本。" }
+                ],
+                choices: [{ text: "走進救贖之殿 (進入第三章)", next: "chapter_3" }]
+            },
+            chapter_3: {
+                loc: "The Hall of Salvation",
+                bg: "BD.jpg",
+                title: "第三章：黎明前的救贖之殿",
+                body: () => [
+                    { type: "text", text: "穿過實驗室，您來到了一座名為 《Before Dawn》 的展廳。牆上投影著校園走廊、網路紛擾與一雙雙渴望救贖的眼睛。" },
+
+                    { type: "text", text: "「這是我最引以為傲，也最心碎的作品。我將自己的成長與掙扎，全部鎔鑄進了這場文字冒險。它在 itch.io 與 Steam 的星圖上留下了位置，在樹心會館與無數陌生人產生了共鳴。」" },
+                    { type: "text", text: "您感覺這座古堡不再只是冰冷的建築，而是一個活著的、正在呼吸的故事。" },
+                ],
+
+                choices: [{ text: "前往展廳盡頭的小室", next: "chapter_4" }]
+            },
+            chapter_4: {
+                loc: "The Ritual Room",
+                bg: "fire.jpg",
+                title: "第四章：智者的壁爐與生活的儀式",
+                body: () => [
+                    { type: "text", text: "書架上擺放著尼采的孤傲與老莊的超脫。空氣中飄著泡菜與馬鈴薯的香氣。尼采教我勇氣，而老莊教我自在。在狹小的廚房裡，切開馬鈴薯的聲響，是我與世界和解的咒語。" },
+                    { type: "text", text: "「生存是為了活著，而生活是為了創作。在追求宏大敘事之餘，我也在細碎的日常中尋找錨點。那是關於如何在混亂中穩住局勢，如何在虛無中建立意義的修行。」" }
+                ],
+                choices: [
+                    { text: "[思辨] 在壁爐旁坐下，與哲學家共餐", next: "path_philosophy" },
+                    { text: "[遠望] 走向窗邊，凝視窗外的數據光芒", next: "path_future" }
+                ]
+            },
+            path_philosophy: {
+                loc: "Deep Reflection",
+                bg: "fire_1.jpg",
+                title: "內在的定心丸",
+                body: () => [
+                    { type: "text", text: "您閉上眼，思考著虛無中的意義。這些哲學思想不再是書本上的文字，而是您面對混亂時的定心丸。當您睜開眼，發現壁爐的火光化作一道光徑，指向最深處的大門。" }
+                ],
+                choices: [{ text: "抵達古堡最深處", next: "final_chapter" }]
+            },
+            path_future: {
+                loc: "Digital Horizon",
+                bg: "darklight.jpg",
+                title: "實踐的野心",
+                body: () => [
+                    { type: "text", text: "窗外是數位森林的微光。您意識到，所有的哲學思辨最終都要落實為行動。您決定將體悟轉化為數位敘事。光芒指引您，走向最終的門扉。" }
+                ],
+                choices: [{ text: "抵達古堡最深處", next: "final_chapter" }]
+            },
+            final_chapter: {
+                loc: "The Unopened Door",
+                bg: "https://images.unsplash.com/photo-1464802686167-b939a6910659?q=80&w=2000",
+                title: "終章：未啟的門扉",
+                reveal: true,
+                body: () => [
+                    { type: "text", text: "眼前是光束與數據交織的「門」。聲音就在您身後。「旅行者，您已經看完了我的過去。」" },
+                    { type: "text", text: "「我是 吳巧妍。我不只是想訴說，我更想邀請您走進我親手築起的世界。」" },
+                    { type: "text", text: "「對於 2026 電通 Future Gen，我帶著『世界工程師』的野心而來。我希望結合 AI 與互動技術，為品牌搭建具備靈魂深度的溝通橋樑。下一個篇章即將開始，帶著執著與技術，我準備好了。」" }
+                ],
+                choices: [{ text: "與我一同書寫未來 (Dentsu 2026)", next: "ending" }]
+            },
+            ending: {
+                loc: "Next Chapter",
+                bg: "https://images.unsplash.com/photo-1513530534585-c7b1394c6d51?q=80&w=2000",
+                title: "聯絡資訊",
+                body: () => [
+                    {
+                        type: "text", text: "期待與您共同創造具備溫度的數位未來。\n\n" +
+                            "<a href='mailto:estella.violet1018@gmail.com' class='external-link'>Email: estella.violet1018@gmail.com</a><br><br>" +
+                            "<a href='https://drive.google.com/drive/folders/1H0mjzKjcWBjya85dOuqgE7h2aTIpEju-?usp=sharing' target='_blank' class='external-link'>▶ 點此查看作品集全集</a>"
+                    }
+                ],
+                choices: [{ text: "重啟記憶", next: "awakening" }]
+            },
+            quit_game: {
+                loc: "The Void",
+                bg: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?q=80&w=2000",
+                title: "放棄旅程",
+                body: () => [
+                    { type: "text", text: "迷霧重新將您吞沒...或許這還不是您準備好傾聽故事的時候。" }
+                ],
+                choices: [{ text: "再次醒來", next: "awakening" }]
+            }
+        };
+
+
+
+        /* ===================== 導航 ===================== */
+        function renderContent(bodyArray) {
+            return bodyArray.map(b => {
+                if (b.type === "text") return `<p class="mb-4">${b.text.replace(/\n/g, "<br>")}</p>`;
+                if (b.type === "dialogue") return `<div class="dialogue-box"><div class="speaker">${b.speaker}</div><p>${b.text}</p></div>`;
+                ;
+            }).join("");
+        }
+        function goTo(key) {
+            const s = scenes[key];
+            const frame = document.getElementById("content-frame");
+            const portrait = document.getElementById("portrait-reveal");
+            const bodyDiv = document.getElementById("scene-body");
+            const armory = document.getElementById("armory-container"); // 取得技能列
+
+            if (!isMusicStarted && key === "prologue") {
+                music.play().catch(() => { });
+                isMusicStarted = true;
+            }
+
+            frame.style.opacity = 0;
+            frame.classList.remove("opacity-100");
+            frame.classList.add("opacity-0");
+
+            setTimeout(() => {
+                if (key === "chapter_3") {
+                    armory.style.display = "flex"; // 只有第三章顯示
+                } else {
+                    armory.style.display = "none"; // 其他章節隱藏
+                }
+
+                document.getElementById("content-frame").style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url('${s.bg}')`;
+
+                document.getElementById("location-tag").textContent = s.loc;
+                document.getElementById("chapter-title").textContent = s.title;
+
+                typeWriterRender(bodyDiv, s.body());
+                renderChoices(s.choices);
+
+                // progress
+                const idx = sceneOrder.indexOf(key);
+                if (idx !== -1) {
+                    document.getElementById("progress-bar").style.width = ((idx + 1) / sceneOrder.length * 100) + "%";
+                }
+
+                frame.style.opacity = 1;
+                frame.classList.remove("opacity-0");
+                frame.classList.add("opacity-100");
+                frame.scrollTop = 0;
+            }, 800);
+        }
+
+        /* ===================== 選項 ===================== */
+        function renderChoices(choices) {
+            const ca = document.getElementById("choice-area");
+            ca.innerHTML = "";
+
+            choices.forEach(c => {
+                let btn = document.createElement("button");
+                btn.className = "choice-btn";
+                btn.innerHTML = c.text;
+
+                btn.onclick = () => {
+                    if (!isTyping) {
+                        goTo(c.next);
+                    }
+                };
+
+                ca.appendChild(btn);
+            });
+        }
+
+        /* ===================== Loading ===================== */
+        window.onload = () => {
+            setTimeout(() => {
+                document.getElementById("loading-screen").style.opacity = 0;
+                setTimeout(() => {
+                    document.getElementById("loading-screen").style.display = "none";
+                }, 1500);
+            }, 800);
+
+            goTo("awakening");
+        };
+        // 1. 滑鼠座標追蹤 (用於 CSS 光暈)
+        window.addEventListener('mousemove', (e) => {
+            const x = (e.clientX / window.innerWidth) * 100;
+            const y = (e.clientY / window.innerHeight) * 100;
+            document.documentElement.style.setProperty('--mouse-x', `${x}%`);
+            document.documentElement.style.setProperty('--mouse-y', `${y}%`);
+        });
+
+        // 2. 粒子系統 (數位塵埃)
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 1.5 + 0.5;
+                this.speedX = (Math.random() - 0.5) * 0.5;
+                this.speedY = (Math.random() - 0.5) * 0.5;
+                this.life = Math.random() * 0.5 + 0.2; // 透明度
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                    this.reset();
+                }
+            }
+            draw() {
+                ctx.fillStyle = `rgba(0, 229, 255, ${0.08})`; // 使用科技藍
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // 初始化粒子
+        for (let i = 0; i < 60; i++) {
+            particles.push(new Particle());
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+    </script>
+
+</body>
+
+</html>
